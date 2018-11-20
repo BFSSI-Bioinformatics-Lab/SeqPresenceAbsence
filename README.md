@@ -1,4 +1,4 @@
-# vfdbQuery
+# seqPresenceAbsence
 
 ### Requirements
 - Python 3.6
@@ -6,20 +6,23 @@
 
 ### Installation
 ```
-pip install vfdbQuery
+pip install seqPresenceAbsence
 ```
 
 ### Usage
 ```
-Usage: vfdbQuery [OPTIONS]
+Usage: seqPresenceAbsence [OPTIONS]
 
-  vfdbQuery is a simple script for querying an input genome assembly against
-  the Virulence Factor Database (VFDB).
+  seqPresenceAbsence is a simple script for querying an input FASTA file
+  against a database of sequences. Will return an .xlsx and .csv report
+  of presence/absence of the sequences.
 
 Options:
-  -i, --infile PATH     FASTA file that you want to search against VFDB
-                        [required]
-  -db, --database PATH  Path to Virulence Factor Database (VFDB)  [required]
-  --help                Show this message and exit.
-
+  -i, --indir PATH    Path to directory containing FASTA files you want to
+                      query  [required]
+  -t, --targets PATH  Path to multi-FASTA containing targets of interest
+                      [required]
+  -o, --outdir PATH   Root directory to store all output files  [required]
+  -v, --verbose       Set this flag to enable more verbose logging.
+  --help              Show this message and exit.
 ```
