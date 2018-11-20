@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="SeqPresenceAbsence",
+    name="seqPresenceAbsence",
     install_requires=['click', 'pandas', 'dataclasses'],
     python_requires='~=3.6',
     description="Package for checking for the presence/absence of markers against a set of samples",
