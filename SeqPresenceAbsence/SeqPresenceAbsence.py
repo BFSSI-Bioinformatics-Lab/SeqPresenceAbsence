@@ -58,8 +58,8 @@ class QueryObject:
 
 
 @click.command(
-    help="SequencePresenceAbsence is a simple script for querying an input FASTA file against a database of probes. "
-         "Will return a visualization of presence/absence of the probes.")
+    help="seqPresenceAbsence is a simple script for querying an input FASTA file against a database of sequences. "
+         "Will return an .xlsx and .csv report of presence/absence of the sequences.")
 @click.option("-i", "--indir",
               type=click.Path(exists=True),
               required=True,
@@ -173,7 +173,6 @@ def parse_blastn(blastn_file: Path, header: list = None) -> pd.DataFrame:
     df = pd.read_csv(blastn_file, delimiter="\t", names=header, index_col=None)
     df['lratio'] = df['length'] / df['slen']
     df['qseq_strand_aware'] = df.apply(get_reverse_complement_row, axis=1)
-    # TODO: Ask Nick about values to hardcode here
     df = df.query("lratio >= 0.95 & pident >= 95.0 & lratio <=1.05")
     return df
 
