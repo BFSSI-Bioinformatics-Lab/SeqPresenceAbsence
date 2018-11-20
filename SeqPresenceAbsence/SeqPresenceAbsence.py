@@ -92,7 +92,7 @@ def cli(indir, targets, outdir, verbose):
             level=logging.INFO,
             datefmt='%Y-%m-%d %H:%M:%S')
 
-    logging.info(f"Started {Path(__file__).name}")
+    logging.info(f"Started seqPresenceAbsence")
 
     check_all_dependencies()
 
@@ -107,7 +107,10 @@ def cli(indir, targets, outdir, verbose):
     query_object_list = []
     with click.progressbar(sample_name_dict.items(), length=len(sample_name_dict), label="BLASTn") as bar:
         for sample_name, infile in bar:
+            # Create QueryObject
             query_object = QueryObject(sample_name=sample_name, fasta_path=infile)
+
+            # Call blastn against sample and parse results
             query_object.blastn_path = call_blastn(query_object.fasta_path, database, outdir)
             query_object.blastn_df = parse_blastn(query_object.blastn_path)
             query_object.filtered_blastn_path = export_df(query_object.blastn_df,
@@ -115,11 +118,37 @@ def cli(indir, targets, outdir, verbose):
                                                               ".BLASTn_filtered"))
             os.remove(str(query_object.blastn_path))
             query_object.blastn_path = None
+
+            # Initialize the target dictionary
             query_object.init_target_dict(targets)
             query_object.fasta_name = get_fasta_headers(query_object.fasta_path)[0].replace(" ", "_").replace(",", "")
             query_object_list.append(query_object)
 
-    generate_final_report(query_object_list, outdir=outdir)
+    query_object_list = generate_final_report(query_object_list, outdir=outdir)
+
+    # Generate a multifasta per locus containing the sequence for each sample
+    loci_dir = outdir / "loci"
+    os.makedirs(str(loci_dir), exist_ok=True)
+
+    # Get master locus list
+    master_locus_list = []
+    for query_object in query_object_list:
+        master_locus_list = list(set(master_locus_list + list(query_object.target_dict_.keys())))
+
+    with click.progressbar(master_locus_list, length=len(master_locus_list), label="Sequence Extract") as bar:
+        for locus in bar:
+            locus_file = loci_dir / (locus + ".fas")
+            with open(str(locus_file), "w") as f:
+                for query_object in query_object_list:
+                    header = f">{query_object.sample_name}\n"
+                    df = query_object.blastn_df
+                    try:
+                        sequence = str(df[df['sseqid'] == locus]['qseq_strand_aware'].values[0]) + "\n"
+                    except IndexError:
+                        continue
+                    f.write(header)
+                    f.write(sequence)
+
     logging.info("Script Complete!")
 
 
@@ -213,7 +242,7 @@ def export_multifasta(blastn_df: pd.DataFrame, sample_name: str, outdir: Path):
             f.write(sequence + "\n")
 
 
-def generate_final_report(query_object_list: [QueryObject], outdir: Path):
+def generate_final_report(query_object_list: [QueryObject], outdir: Path) -> [QueryObject]:
     df_master_list = []
     for query_object in query_object_list:
         query_object.blastn_df = pd.read_csv(query_object.filtered_blastn_path, sep='\t')
@@ -248,6 +277,8 @@ def generate_final_report(query_object_list: [QueryObject], outdir: Path):
 
     logging.info(f"Created .csv of count data at {csv_path}")
     logging.info(f"Created .xlsx of count data at {xlsx_path}")
+
+    return query_object_list
 
 
 def dependency_check(dependency: str) -> bool:
