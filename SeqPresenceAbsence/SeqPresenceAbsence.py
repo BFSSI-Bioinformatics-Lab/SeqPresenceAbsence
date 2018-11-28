@@ -190,6 +190,9 @@ def get_fasta_headers(fasta: Path) -> list:
                 line = line[1:]
                 line = line.strip()
                 header = line.split(" ")[0]
+                # This is really sketchy
+                if '|' in header:
+                    header = header.split("|")[1]
                 fasta_headers.append(header)
     return fasta_headers
 
@@ -208,7 +211,7 @@ def parse_blastn(blastn_file: Path, perc_identity: float, header: list = None) -
     df = pd.read_csv(blastn_file, delimiter="\t", names=header, index_col=None)
     df['lratio'] = df['length'] / df['slen']
     df['qseq_strand_aware'] = df.apply(get_reverse_complement_row, axis=1)
-    df = df.query(f"lratio >= 0.95 & pident >= {perc_identity} & lratio <=1.05")
+    df = df.query(f"lratio >= 0.90 & pident >= {perc_identity} & lratio <=1.10")
     df = df.sort_values(by=['bitscore'], ascending=False)
     return df
 
@@ -273,6 +276,7 @@ def generate_final_report(query_object_list: [QueryObject], outdir: Path) -> [Qu
                                        values='count').reset_index()
 
     csv_path = outdir / f'TargetOutput.tsv'
+    csv_path_t = outdir / f'TargetOutput_transposed.tsv'
     xlsx_path = outdir / f'TargetOutput.xlsx'
     writer = pd.ExcelWriter(str(xlsx_path), engine='xlsxwriter')
     df_pivot.to_excel(writer, sheet_name='TargetOutput', index=None)
@@ -281,6 +285,7 @@ def generate_final_report(query_object_list: [QueryObject], outdir: Path) -> [Qu
     writer.save()
 
     df_pivot.to_csv(csv_path, sep='\t', index=None)
+    df_pivot.transpose().to_csv(csv_path_t, sep='\t')
 
     logging.info(f"Created .csv of count data at {csv_path}")
     logging.info(f"Created .xlsx of count data at {xlsx_path}")
