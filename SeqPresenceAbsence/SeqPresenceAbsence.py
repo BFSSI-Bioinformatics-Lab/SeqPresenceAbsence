@@ -3,14 +3,20 @@ import click
 import shutil
 import logging
 import pandas as pd
+from tqdm import tqdm
 from pathlib import Path
 from dataclasses import dataclass
-from subprocess import Popen, PIPE
+from subprocess import Popen, PIPE, DEVNULL
 
 DEPENDENCIES = [
     'blastn',
-    'makeblastdb'
+    'makeblastdb',
+    'muscle',
+    'perl'
 ]
+
+ROOT_DIR = Path(__file__).parent
+FASCONCAT = ROOT_DIR / 'FASconCAT-G_v1.04.pl'
 
 
 def convert_to_path(ctx, param, value):
@@ -110,24 +116,23 @@ def cli(indir, targets, outdir, perc_identity, verbose):
     logging.debug(f"Detected {len(sample_name_dict)} samples")
 
     query_object_list = []
-    with click.progressbar(sample_name_dict.items(), length=len(sample_name_dict), label="BLASTn") as bar:
-        for sample_name, infile in bar:
-            # Create QueryObject
-            query_object = QueryObject(sample_name=sample_name, fasta_path=infile)
+    for sample_name, infile in tqdm(sample_name_dict.items()):
+        # Create QueryObject
+        query_object = QueryObject(sample_name=sample_name, fasta_path=infile)
 
-            # Call blastn against sample and parse results
-            query_object.blastn_path = call_blastn(infile=query_object.fasta_path, database=database, outdir=outdir)
-            query_object.blastn_df = parse_blastn(blastn_file=query_object.blastn_path, perc_identity=perc_identity)
-            query_object.filtered_blastn_path = export_df(query_object.blastn_df,
-                                                          outfile=query_object.blastn_path.with_suffix(
-                                                              ".BLASTn_filtered"))
-            os.remove(str(query_object.blastn_path))
-            query_object.blastn_path = None
+        # Call blastn against sample and parse results
+        query_object.blastn_path = call_blastn(infile=query_object.fasta_path, database=database, outdir=outdir)
+        query_object.blastn_df = parse_blastn(blastn_file=query_object.blastn_path, perc_identity=perc_identity)
+        query_object.filtered_blastn_path = export_df(query_object.blastn_df,
+                                                      outfile=query_object.blastn_path.with_suffix(
+                                                          ".BLASTn_filtered"))
+        os.remove(str(query_object.blastn_path))
+        query_object.blastn_path = None
 
-            # Initialize the target dictionary
-            query_object.init_target_dict(targets)
-            query_object.fasta_name = get_fasta_headers(query_object.fasta_path)[0].replace(" ", "_").replace(",", "")
-            query_object_list.append(query_object)
+        # Initialize the target dictionary
+        query_object.init_target_dict(targets)
+        query_object.fasta_name = get_fasta_headers(query_object.fasta_path)[0].replace(" ", "_").replace(",", "")
+        query_object_list.append(query_object)
 
     query_object_list = generate_final_report(query_object_list, outdir=outdir)
 
@@ -140,22 +145,39 @@ def cli(indir, targets, outdir, perc_identity, verbose):
     for query_object in query_object_list:
         master_locus_list = list(set(master_locus_list + list(query_object.target_dict_.keys())))
 
-    with click.progressbar(master_locus_list, length=len(master_locus_list),
-                           label="Sequence Extract") as master_locus_list:
-        for locus in master_locus_list:
-            locus_file = loci_dir / (locus + ".fas")
-            with open(str(locus_file), "w") as f:
-                for query_object in query_object_list:
-                    header = f">{query_object.sample_name}\n"
-                    df = query_object.blastn_df
-                    try:
-                        sequence = str(df[df['sseqid'] == locus]['qseq_strand_aware'].values[0]) + "\n"
-                    except IndexError:
-                        continue
-                    f.write(header)
-                    f.write(sequence)
+    for locus in tqdm(master_locus_list):
+        locus_file = loci_dir / (locus + ".fas")
+        with open(str(locus_file), "w") as f:
+            for query_object in query_object_list:
+                header = f">{query_object.sample_name}\n"
+                df = query_object.blastn_df
+                try:
+                    sequence = str(df[df['sseqid'] == locus]['qseq_strand_aware'].values[0]) + "\n"
+                except IndexError:
+                    continue
+                f.write(header)
+                f.write(sequence)
+
+    logging.info("Removing empty files from loci dir")
+    remove_empty_files_from_dir(in_dir=loci_dir)
+
+    # Create alignmed versions of each marker multifasta with muscle
+    logging.info("Aligning fasta files in loci dir with MUSCLE")
+    aligned_dir = Path(loci_dir / 'aligned')
+    aligned_dir.mkdir(exist_ok=True)
+    for f in tqdm(list(loci_dir.glob("*.fas"))):
+        call_muscle(infile=f, outfile=(aligned_dir / f.with_suffix(".align.fas").name))
+
+    logging.info(f"Calling FASconCAT on contents of {aligned_dir}")
+    call_fasconcat(target_dir=aligned_dir, fasconcat_exec=FASCONCAT)
 
     logging.info("Script Complete!")
+
+
+def remove_empty_files_from_dir(in_dir: Path):
+    for f in list(in_dir.glob("*")):
+        if f.lstat().st_size == 0:
+            f.unlink()
 
 
 def get_sample_name_dict(indir: Path) -> dict:
@@ -357,6 +379,35 @@ def call_makeblastdb(db_file: Path) -> Path:
     else:
         logging.debug("Invalid file format provided to call_makeblastdb()")
     return db_name
+
+
+def call_raxml_ng(fasta: Path):
+    """
+    raxml-ng --msa /mnt/QuizBoy/probeDetectionTesting/TreeTest/out/loci/aligned/FcC_supermatrix.fas  --model GTR+G --threads 2
+    """
+    cmd = f"raxml-ng --msa {fasta} --model GTR+G --threads 2"
+
+
+def call_raxml(fasta: Path, n_cpu: int):
+    """
+    raxmlHPC-PTHREADS-SSE3 -s FcC_smatrix.phy.reduced -n VDB_Tree_Galapagos -p 12345 -x 12345 -N 1000 -m GTRGAMMA -T 50 -f a
+    """
+    tree_name = fasta.with_suffix(".tree").name
+    cmd = f"raxmlHPC-PTHREADS-SSE3 -s {fasta} -n {tree_name} -p 12345 -N 1000 -m GTRGAMMA -T {n_cpu} -f a"
+    run_subprocess(cmd)
+
+
+def call_muscle(infile: Path, outfile: Path = None):
+    if outfile is None:
+        outfile = infile.with_suffix(".align.fasta")
+    cmd = f"muscle -in {infile} -out {outfile} -maxiters 1"
+    run_subprocess(cmd, get_stdout=True)
+
+
+def call_fasconcat(target_dir: Path, fasconcat_exec: Path):
+    cmd = f"perl {fasconcat_exec} -s -p"
+    p = Popen(cmd, shell=True, cwd=str(target_dir), stdout=DEVNULL, stderr=DEVNULL)
+    p.wait()
 
 
 def run_subprocess(cmd: str, get_stdout: bool = False) -> str:
