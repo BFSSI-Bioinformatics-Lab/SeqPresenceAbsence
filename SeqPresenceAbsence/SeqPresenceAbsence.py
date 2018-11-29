@@ -140,8 +140,9 @@ def cli(indir, targets, outdir, perc_identity, verbose):
     for query_object in query_object_list:
         master_locus_list = list(set(master_locus_list + list(query_object.target_dict_.keys())))
 
-    with click.progressbar(master_locus_list, length=len(master_locus_list), label="Sequence Extract") as bar:
-        for locus in bar:
+    with click.progressbar(master_locus_list, length=len(master_locus_list),
+                           label="Sequence Extract") as master_locus_list:
+        for locus in master_locus_list:
             locus_file = loci_dir / (locus + ".fas")
             with open(str(locus_file), "w") as f:
                 for query_object in query_object_list:
@@ -278,14 +279,27 @@ def generate_final_report(query_object_list: [QueryObject], outdir: Path) -> [Qu
     csv_path = outdir / f'TargetOutput.tsv'
     csv_path_t = outdir / f'TargetOutput_transposed.tsv'
     xlsx_path = outdir / f'TargetOutput.xlsx'
+    xlsx_path_t = outdir / f'TargetOutput_transposed.xlsx'
+
+    # Excel report
     writer = pd.ExcelWriter(str(xlsx_path), engine='xlsxwriter')
     df_pivot.to_excel(writer, sheet_name='TargetOutput', index=None)
     worksheet = writer.sheets['TargetOutput']
     worksheet.conditional_format('B2:AMJ4000', {'type': '2_color_scale'})
     writer.save()
 
+    # Transposed Excel report
+    # df_pivot.set_index('sample_name', inplace=True)
+    df_transposed = df_pivot.transpose()
+    writer = pd.ExcelWriter(str(xlsx_path_t), engine='xlsxwriter')
+    df_transposed.to_excel(writer, sheet_name='TargetOutput', header=None)
+    worksheet = writer.sheets['TargetOutput']
+    worksheet.conditional_format('A2:AMJ4000', {'type': '2_color_scale'})
+    writer.save()
+
+    # CSV files
     df_pivot.to_csv(csv_path, sep='\t', index=None)
-    df_pivot.transpose().to_csv(csv_path_t, sep='\t')
+    df_transposed.to_csv(csv_path_t, sep='\t', header=None)
 
     logging.info(f"Created .csv of count data at {csv_path}")
     logging.info(f"Created .xlsx of count data at {xlsx_path}")
