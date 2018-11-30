@@ -107,6 +107,10 @@ def cli(indir, targets, outdir, perc_identity, verbose):
 
     check_all_dependencies()
 
+    if not targets.suffix == '.fasta':
+        logging.error(f"Suffix for --targets argument must be '.fasta', please try again. Your file: {targets}")
+        quit()
+
     os.makedirs(str(outdir), exist_ok=True)
 
     database = call_makeblastdb(targets)
