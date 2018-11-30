@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="seqPresenceAbsence",
-    install_requires=['click', 'pandas', 'dataclasses', 'xlsxwriter'],
+    install_requires=['click', 'pandas', 'dataclasses', 'xlsxwriter', 'tqdm'],
     python_requires='~=3.6',
     description="Package for checking for the presence/absence of markers against a set of samples",
     long_description=long_description,
