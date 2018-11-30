@@ -179,7 +179,9 @@ def cli(indir, targets, outdir, perc_identity, verbose):
 
 
 def remove_empty_files_from_dir(in_dir: Path):
-    for f in list(in_dir.glob("*")):
+    file_list = list(in_dir.glob("*"))
+    file_list = [f for f in file_list if f.is_file()]
+    for f in file_list:
         if f.lstat().st_size == 0:
             f.unlink()
 
