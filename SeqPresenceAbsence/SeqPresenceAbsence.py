@@ -87,11 +87,15 @@ class QueryObject:
               required=False,
               default=95.00,
               help='Equivalent to the -perc_identity argument in blastn. Defaults to 95.00.')
+@click.option('-k', '--keep_db_seqs',
+              is_flag=True,
+              default=False,
+              help='Set this flag to keep the target sequence in addition to the query sequence from BLAST.')
 @click.option('-v', '--verbose',
               is_flag=True,
-              default=False,  # Set this to false eventually
+              default=False,
               help='Set this flag to enable more verbose logging.')
-def cli(indir, targets, outdir, perc_identity, verbose):
+def cli(indir, targets, outdir, perc_identity, keep_db_seqs, verbose):
     if verbose:
         logging.basicConfig(
             format='\033[92m \033[1m %(asctime)s \033[0m %(message)s ',
@@ -125,7 +129,8 @@ def cli(indir, targets, outdir, perc_identity, verbose):
         query_object = QueryObject(sample_name=sample_name, fasta_path=infile)
 
         # Call blastn against sample and parse results
-        query_object.blastn_path = call_blastn(infile=query_object.fasta_path, database=database, outdir=outdir)
+        query_object.blastn_path = call_blastn(infile=query_object.fasta_path, database=database, outdir=outdir,
+                                               keep_db_seqs=keep_db_seqs)
         query_object.blastn_df = parse_blastn(blastn_file=query_object.blastn_path, perc_identity=perc_identity)
         query_object.filtered_blastn_path = export_df(query_object.blastn_df,
                                                       outfile=query_object.blastn_path.with_suffix(
@@ -236,7 +241,7 @@ def parse_blastn(blastn_file: Path, perc_identity: float, header: list = None) -
     """
     if header is None:
         header = ["qseqid", "stitle", "sseqid", "slen", "length", "qstart", "qend",
-                  "pident", "score", "sstrand", "qseq", "bitscore"]
+                  "pident", "score", "sstrand", "bitscore", "qseq", "sseq"]
     df = pd.read_csv(blastn_file, delimiter="\t", names=header, index_col=None)
     df['lratio'] = df['length'] / df['slen']
     df['qseq_strand_aware'] = df.apply(get_reverse_complement_row, axis=1)
@@ -250,13 +255,14 @@ def get_highest_bitscore_hit(df: pd.DataFrame) -> pd.DataFrame:
     return df.head(1)
 
 
-def call_blastn(infile: Path, database: Path, outdir: Path):
+def call_blastn(infile: Path, database: Path, outdir: Path, keep_db_seqs: bool):
     # Need to perform first BLAST phase, if something is found go onto the next
     # logging.info(f"Running blastn on {infile}")
     out_blast = outdir / infile.with_suffix(".BLASTn").name
-    blast_cmd = f"blastn -db {database} -query {infile} -word_size 15 -outfmt " \
-                f"'6 qseqid stitle sseqid slen length qstart qend pident score sstrand qseq bitscore' " \
-                f"> {out_blast}"
+    blast_params = "6 qseqid stitle sseqid slen length qstart qend pident score sstrand bitscore qseq "
+    if keep_db_seqs:
+        blast_params += 'sseq'
+    blast_cmd = f"blastn -db {database} -query {infile} -word_size 15 -outfmt '{blast_params}' > {out_blast}"
     run_subprocess(blast_cmd)
     return out_blast
 
@@ -303,6 +309,8 @@ def generate_final_report(query_object_list: [QueryObject], outdir: Path) -> [Qu
     df_pivot = df_combined.pivot_table(index=['sample_name', 'fasta_name'],
                                        columns='target',
                                        values='count').reset_index()
+
+    # TODO: Split df_pivot into those with NO hits and those with some
 
     csv_path = outdir / f'TargetOutput.tsv'
     csv_path_t = outdir / f'TargetOutput_transposed.tsv'
