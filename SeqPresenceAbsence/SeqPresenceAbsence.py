@@ -7,6 +7,7 @@ from tqdm import tqdm
 from pathlib import Path
 from dataclasses import dataclass
 from subprocess import Popen, PIPE, DEVNULL
+from SeqPresenceAbsence.__init__ import __version__, __author__, __email__
 
 DEPENDENCIES = [
     'blastn',
@@ -18,6 +19,15 @@ DEPENDENCIES = [
 
 ROOT_DIR = Path(__file__).parent
 FASCONCAT = ROOT_DIR / 'FASconCAT-G_v1.04.pl'
+
+
+def print_version(ctx, param, value):
+    if not value or ctx.resilient_parsing:
+        return
+    logging.info(f"Version: {__version__}")
+    logging.info(f"Author: {__author__}")
+    logging.info(f"Email: {__email__}")
+    quit()
 
 
 def convert_to_path(ctx, param, value):
@@ -96,6 +106,12 @@ class QueryObject:
               is_flag=True,
               default=False,
               help='Set this flag to enable more verbose logging.')
+@click.option('--version',
+              help='Specify this flag to print the version and exit.',
+              is_flag=True,
+              is_eager=True,
+              callback=print_version,
+              expose_value=False)
 def cli(indir, targets, outdir, perc_identity, keep_db_seqs, verbose):
     if verbose:
         logging.basicConfig(
