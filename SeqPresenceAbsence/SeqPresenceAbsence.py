@@ -10,6 +10,7 @@ from subprocess import Popen, PIPE, DEVNULL
 
 DEPENDENCIES = [
     'blastn',
+    'blastx',
     'makeblastdb',
     'muscle',
     'perl'
@@ -64,8 +65,8 @@ class QueryObject:
 
 
 @click.command(
-    help="seqPresenceAbsence is a simple script for querying an input FASTA file against a database of sequences. "
-         "Will return an .xlsx and .csv report of presence/absence of the sequences.")
+    help="seqPresenceAbsence is a simple script for querying an input nucleotide FASTA file against a database of "
+         "sequences. Will return an .xlsx and .csv report of presence/absence of the sequences.")
 @click.option("-i", "--indir",
               type=click.Path(exists=True),
               required=True,
@@ -109,6 +110,12 @@ def cli(indir, targets, outdir, perc_identity, keep_db_seqs, verbose):
 
     logging.info(f"Started seqPresenceAbsence")
 
+    # TODO: Dynamically detect and adjust to sequence type for targets/query (nucl vs prot)
+    # if protein:
+    #     logging.debug("Using blastx for alignments")
+    # else:
+    #     logging.debug("Using blastn for alignments")
+
     check_all_dependencies()
 
     if not targets.suffix == '.fasta':
@@ -117,7 +124,7 @@ def cli(indir, targets, outdir, perc_identity, keep_db_seqs, verbose):
 
     os.makedirs(str(outdir), exist_ok=True)
 
-    database = call_makeblastdb(targets)
+    database = call_makeblastdb(db_file=targets)
     logging.debug(f"Created BLAST database at {database}")
 
     sample_name_dict = get_sample_name_dict(indir=indir)
@@ -129,8 +136,8 @@ def cli(indir, targets, outdir, perc_identity, keep_db_seqs, verbose):
         query_object = QueryObject(sample_name=sample_name, fasta_path=infile)
 
         # Call blastn against sample and parse results
-        query_object.blastn_path = call_blastn(infile=query_object.fasta_path, database=database, outdir=outdir,
-                                               keep_db_seqs=keep_db_seqs)
+        query_object.blastn_path = call_blast(infile=query_object.fasta_path, database=database, outdir=outdir,
+                                              keep_db_seqs=keep_db_seqs)
         query_object.blastn_df = parse_blastn(blastn_file=query_object.blastn_path, perc_identity=perc_identity)
         query_object.filtered_blastn_path = export_df(query_object.blastn_df,
                                                       outfile=query_object.blastn_path.with_suffix(
@@ -195,6 +202,7 @@ def get_sample_name_dict(indir: Path) -> dict:
     fasta_files = list(indir.glob("*.fna"))
     fasta_files += list(indir.glob("*.fasta"))
     fasta_files += list(indir.glob("*.fa"))
+    fasta_files += list(indir.glob("*.ffn"))
 
     sample_name_dict = {}
     for f in fasta_files:
@@ -255,14 +263,14 @@ def get_highest_bitscore_hit(df: pd.DataFrame) -> pd.DataFrame:
     return df.head(1)
 
 
-def call_blastn(infile: Path, database: Path, outdir: Path, keep_db_seqs: bool):
-    # Need to perform first BLAST phase, if something is found go onto the next
-    # logging.info(f"Running blastn on {infile}")
+def call_blast(infile: Path, database: Path, outdir: Path, keep_db_seqs: bool):
     out_blast = outdir / infile.with_suffix(".BLASTn").name
     blast_params = "6 qseqid stitle sseqid slen length qstart qend pident score sstrand bitscore qseq "
     if keep_db_seqs:
         blast_params += 'sseq'
+
     blast_cmd = f"blastn -db {database} -query {infile} -word_size 15 -outfmt '{blast_params}' > {out_blast}"
+
     run_subprocess(blast_cmd)
     return out_blast
 
@@ -377,18 +385,21 @@ def check_all_dependencies():
 def call_makeblastdb(db_file: Path) -> Path:
     """
     Makes a system call to makeblastdb on a given database file. Can handle *.gz, *.fasta, or no suffix.
-    :param db_file: Path to database file
     """
     db_name = db_file.with_suffix(".blastDB")
+    db_type = 'nucl'
     if db_file.suffix == ".gz":
-        cmd = f"gunzip -c {db_file} | makeblastdb -in - -parse_seqids -dbtype nucl -out {db_name} -title {db_name}"
+        cmd = f"gunzip -c {db_file} | makeblastdb -in - -parse_seqids -out {db_name} -title {db_name} "
+        cmd += f"-dbtype {db_type}"
         run_subprocess(cmd, get_stdout=True)
     elif db_file.suffix == ".fasta":
-        cmd = f"makeblastdb -in {db_file} -parse_seqids -dbtype nucl -out {db_name} -title {db_name}"
+        cmd = f"makeblastdb -in {db_file} -parse_seqids -out {db_name} -title {db_name} "
+        cmd += f"-dbtype {db_type}"
         run_subprocess(cmd, get_stdout=True)
     elif db_file.suffix == "":
         os.rename(str(db_file), str(db_file.with_suffix(".fasta")))
-        cmd = f"makeblastdb -in {db_file} -parse_seqids -dbtype nucl -out {db_name} -title {db_name}"
+        cmd = f"makeblastdb -in {db_file} -parse_seqids -out {db_name} -title {db_name} "
+        cmd += f"-dbtype {db_type}"
         run_subprocess(cmd, get_stdout=True)
     else:
         logging.debug("Invalid file format provided to call_makeblastdb()")
