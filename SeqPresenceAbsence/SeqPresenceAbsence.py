@@ -7,7 +7,10 @@ from tqdm import tqdm
 from pathlib import Path
 from dataclasses import dataclass
 from subprocess import Popen, PIPE, DEVNULL
-from SeqPresenceAbsence.__init__ import __version__, __author__, __email__
+
+__version__ = "0.1.3"
+__author__ = "Forest Dussault"
+__email__ = "forest.dussault@canada.ca"
 
 DEPENDENCIES = [
     'blastn',
@@ -24,9 +27,9 @@ FASCONCAT = ROOT_DIR / 'FASconCAT-G_v1.04.pl'
 def print_version(ctx, param, value):
     if not value or ctx.resilient_parsing:
         return
-    logging.info(f"Version: {__version__}")
-    logging.info(f"Author: {__author__}")
-    logging.info(f"Email: {__email__}")
+    print(f"Version: {__version__}")
+    print(f"Author: {__author__}")
+    print(f"Email: {__email__}")
     quit()
 
 
@@ -75,8 +78,8 @@ class QueryObject:
 
 
 @click.command(
-    help="seqPresenceAbsence is a simple script for querying an input nucleotide FASTA file against a database of "
-         "sequences. Will return an .xlsx and .csv report of presence/absence of the sequences.")
+    help=f"seqPresenceAbsence is a simple script for querying an input nucleotide FASTA file against a database of "
+    f"sequences. Will return an .xlsx and .csv report of presence/absence of the sequences. Version: {__version__}.")
 @click.option("-i", "--indir",
               type=click.Path(exists=True),
               required=True,

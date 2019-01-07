@@ -1,5 +1,5 @@
 import setuptools
-from SeqPresenceAbsence.__init__ import __version__, __author__, __email__
+from SeqPresenceAbsence.SeqPresenceAbsence import __version__, __author__, __email__
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
