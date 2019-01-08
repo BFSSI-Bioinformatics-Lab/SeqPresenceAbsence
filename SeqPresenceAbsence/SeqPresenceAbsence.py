@@ -129,12 +129,6 @@ def cli(indir, targets, outdir, perc_identity, keep_db_seqs, verbose):
 
     logging.info(f"Started seqPresenceAbsence")
 
-    # TODO: Dynamically detect and adjust to sequence type for targets/query (nucl vs prot)
-    # if protein:
-    #     logging.debug("Using blastx for alignments")
-    # else:
-    #     logging.debug("Using blastn for alignments")
-
     check_all_dependencies()
 
     if not targets.suffix == '.fasta':
@@ -196,7 +190,11 @@ def cli(indir, targets, outdir, perc_identity, keep_db_seqs, verbose):
     logging.info("Removing empty files from loci dir")
     remove_empty_files_from_dir(in_dir=loci_dir)
 
-    # Create alignmed versions of each marker multifasta with muscle
+    # Split the marker DB into individual files and drop into loci_dir
+    if keep_db_seqs:
+        database_fasta_list = split_multifasta(multifasta=targets, outdir=loci_dir)
+
+    # Create aligned versions of each marker multifasta with muscle
     logging.info("Aligning fasta files in loci dir with MUSCLE")
     aligned_dir = Path(loci_dir / 'aligned')
     aligned_dir.mkdir(exist_ok=True)
@@ -215,6 +213,22 @@ def remove_empty_files_from_dir(in_dir: Path):
     for f in file_list:
         if f.lstat().st_size == 0:
             f.unlink()
+
+
+def split_multifasta(multifasta: Path, outdir: Path) -> [Path]:
+    outfile_list = []
+    outfile = None
+    with open(str(multifasta), 'r') as f:
+        for line in f:
+            if line.startswith(">"):
+                target_name = line.replace(">", "").replace(" ", "_").strip()
+                outfile = outdir / f"{target_name}.fas"
+                outfile_list.append(outfile)
+                outfile = open(str(outfile), "w")
+                outfile.write(line)
+            else:
+                outfile.write(line)
+    return outfile_list
 
 
 def get_sample_name_dict(indir: Path) -> dict:
