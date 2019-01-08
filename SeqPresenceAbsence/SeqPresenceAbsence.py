@@ -8,7 +8,7 @@ from pathlib import Path
 from dataclasses import dataclass
 from subprocess import Popen, PIPE, DEVNULL
 
-__version__ = "0.1.3"
+__version__ = "0.1.4"
 __author__ = "Forest Dussault"
 __email__ = "forest.dussault@canada.ca"
 
