@@ -12,6 +12,8 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/bfssi-forest-dussault/SeqPresenceAbsence",
+    package_data={'SeqPresenceAbsence': ['*']},
+    install_pacakage_data=True,
     packages=setuptools.find_packages(),
     version=__version__,
     author=__author__,
