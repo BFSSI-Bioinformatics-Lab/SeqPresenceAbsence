@@ -32,3 +32,8 @@ Options:
   --version                  Specify this flag to print the version and exit.
   --help                     Show this message and exit.
 ```
+
+### Notes
+This package includes FASconCAT-G v1.04, developed by Patrick Kück.
+
+- Kück P., Meusemann K. (2010): FASconCAT: Convenient handling of data matrices. Mol. Phylogen. Evol. 56:1115-1118
