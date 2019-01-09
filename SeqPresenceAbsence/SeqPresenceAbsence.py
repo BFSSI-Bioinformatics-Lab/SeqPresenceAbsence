@@ -8,7 +8,7 @@ from pathlib import Path
 from dataclasses import dataclass
 from subprocess import Popen, PIPE, DEVNULL
 
-__version__ = "0.1.4"
+__version__ = "0.2.0"
 __author__ = "Forest Dussault"
 __email__ = "forest.dussault@canada.ca"
 
@@ -22,6 +22,7 @@ DEPENDENCIES = [
 
 ROOT_DIR = Path(__file__).parent
 FASCONCAT = ROOT_DIR / 'FASconCAT-G_v1.04.pl'
+os.chmod(str(FASCONCAT), 0o775)
 
 
 def print_version(ctx, param, value):
@@ -190,8 +191,9 @@ def cli(indir, targets, outdir, perc_identity, keep_db_seqs, verbose):
                 f.write(header)
                 f.write(sequence)
             reference_header = f">REFERENCE_TARGET\n"
-            f.write(reference_header)
-            f.write(reference_sequence)
+            if reference_sequence is not "":
+                f.write(reference_header)
+                f.write(reference_sequence)
 
     logging.info("Removing empty files from loci dir")
     remove_empty_files_from_dir(in_dir=loci_dir)
@@ -263,7 +265,7 @@ def get_fasta_headers(fasta: Path) -> list:
                 line = line.strip()
                 header = line.split(" ")[0]
 
-    # TODO: Bug - contigs that have "|" in them will break this fix, whereas targets with "|" need this fix?
+                # TODO: Bug - contigs that have "|" in them will break this fix, whereas targets with "|" need this fix?
                 # This is really sketchy
                 # if '|' in header:
                 #     header = header.split("|")[1]
@@ -356,12 +358,15 @@ def generate_final_report(query_object_list: [QueryObject], outdir: Path) -> [Qu
                                        columns='target',
                                        values='count').reset_index()
 
+    # df_pivot_filtered =
+
     # TODO: Split df_pivot into those with NO hits and those with some
 
     csv_path = outdir / f'TargetOutput.tsv'
     csv_path_t = outdir / f'TargetOutput_transposed.tsv'
     xlsx_path = outdir / f'TargetOutput.xlsx'
     xlsx_path_t = outdir / f'TargetOutput_transposed.xlsx'
+    xlsx_path_t_filtered = outdir / f'TargetOutput_transposed_filtered.xlsx'
 
     # Excel report
     writer = pd.ExcelWriter(str(xlsx_path), engine='xlsxwriter')
