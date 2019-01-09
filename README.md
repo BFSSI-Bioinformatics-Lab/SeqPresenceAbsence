@@ -17,7 +17,7 @@ Usage: seqPresenceAbsence [OPTIONS]
 
   seqPresenceAbsence is a simple script for querying an input nucleotide
   FASTA file against a database of sequences. Will return an .xlsx and .csv
-  report of presence/absence of the sequences. Version: 0.1.3.
+  report of presence/absence of the sequences. Version: 0.2.0.
 
 Options:
   -i, --indir PATH           Path to directory containing FASTA files you want
