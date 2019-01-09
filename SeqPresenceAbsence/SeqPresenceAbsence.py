@@ -8,7 +8,7 @@ from pathlib import Path
 from dataclasses import dataclass
 from subprocess import Popen, PIPE, DEVNULL
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 __author__ = "Forest Dussault"
 __email__ = "forest.dussault@canada.ca"
 
@@ -219,22 +219,6 @@ def remove_empty_files_from_dir(in_dir: Path):
             f.unlink()
 
 
-def split_multifasta(multifasta: Path, outdir: Path) -> [Path]:
-    outfile_list = []
-    outfile = None
-    with open(str(multifasta), 'r') as f:
-        for line in f:
-            if line.startswith(">"):
-                target_name = line.replace(">", "").replace(" ", "_").replace("").strip()
-                outfile = outdir / f"{target_name}.fas"
-                outfile_list.append(outfile)
-                outfile = open(str(outfile), "w")
-                outfile.write(line)
-            else:
-                outfile.write(line)
-    return outfile_list
-
-
 def get_sample_name_dict(indir: Path) -> dict:
     fasta_files = list(indir.glob("*.fna"))
     fasta_files += list(indir.glob("*.fasta"))
@@ -335,6 +319,20 @@ def export_multifasta(blastn_df: pd.DataFrame, sample_name: str, outdir: Path):
             f.write(sequence + "\n")
 
 
+def filter_empty_hits(df: pd.DataFrame):
+    df = df.reset_index()
+    rows = df.iterrows()
+    next(rows)
+    next(rows)
+    rows_to_remove = []
+    for i, row in rows:
+        presabs_list = list(row.values[1:])
+        if 1 not in presabs_list:
+            rows_to_remove.append(i)
+    df = df.drop(df.index[tuple([rows_to_remove])])
+    return df
+
+
 def generate_final_report(query_object_list: [QueryObject], outdir: Path) -> [QueryObject]:
     df_master_list = []
     for query_object in query_object_list:
@@ -358,10 +356,6 @@ def generate_final_report(query_object_list: [QueryObject], outdir: Path) -> [Qu
                                        columns='target',
                                        values='count').reset_index()
 
-    # df_pivot_filtered =
-
-    # TODO: Split df_pivot into those with NO hits and those with some
-
     csv_path = outdir / f'TargetOutput.tsv'
     csv_path_t = outdir / f'TargetOutput_transposed.tsv'
     xlsx_path = outdir / f'TargetOutput.xlsx'
@@ -380,6 +374,15 @@ def generate_final_report(query_object_list: [QueryObject], outdir: Path) -> [Qu
     df_transposed = df_pivot.transpose()
     writer = pd.ExcelWriter(str(xlsx_path_t), engine='xlsxwriter')
     df_transposed.to_excel(writer, sheet_name='TargetOutput', header=None)
+    worksheet = writer.sheets['TargetOutput']
+    worksheet.conditional_format('A2:AMJ4000', {'type': '2_color_scale'})
+    writer.save()
+
+    # Transposed filtered Excel report
+    # Filter out rows without any hits
+    df_transposed_filtered = filter_empty_hits(df=df_transposed)
+    writer = pd.ExcelWriter(str(xlsx_path_t_filtered), engine='xlsxwriter')
+    df_transposed_filtered.to_excel(writer, sheet_name='TargetOutput', header=None, index=None)
     worksheet = writer.sheets['TargetOutput']
     worksheet.conditional_format('A2:AMJ4000', {'type': '2_color_scale'})
     writer.save()
@@ -449,16 +452,18 @@ def call_makeblastdb(db_file: Path) -> Path:
     return db_name
 
 
-def call_raxml_ng(fasta: Path):
-    """
-    raxml-ng --msa /mnt/QuizBoy/probeDetectionTesting/TreeTest/out/loci/aligned/FcC_supermatrix.fas  --model GTR+G --threads 2
-    """
-    cmd = f"raxml-ng --msa {fasta} --model GTR+G --threads 2"
+# def call_raxml_ng(fasta: Path):
+#     """
+#     raxml-ng --msa /mnt/QuizBoy/probeDetectionTesting/TreeTest/out/loci/aligned/FcC_supermatrix.fas  --model GTR+G
+#     --threads 2
+#     """
+#     cmd = f"raxml-ng --msa {fasta} --model GTR+G --threads 2"
 
 
 def call_raxml(fasta: Path, n_cpu: int):
     """
-    raxmlHPC-PTHREADS-SSE3 -s FcC_smatrix.phy.reduced -n VDB_Tree_Galapagos -p 12345 -x 12345 -N 1000 -m GTRGAMMA -T 50 -f a
+    raxmlHPC-PTHREADS-SSE3 -s FcC_smatrix.phy.reduced -n VDB_Tree_Galapagos -p 12345 -x 12345 -N 1000 -m GTRGAMMA -T 50
+    -f a
     """
     tree_name = fasta.with_suffix(".tree").name
     cmd = f"raxmlHPC-PTHREADS-SSE3 -s {fasta} -n {tree_name} -p 12345 -N 1000 -m GTRGAMMA -T {n_cpu} -f a"
