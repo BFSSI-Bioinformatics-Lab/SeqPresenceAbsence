@@ -251,11 +251,6 @@ def export_df(df: pd.DataFrame, outfile: Path) -> Path:
     return outfile
 
 
-def create_target_dict(targets: Path) -> dict:
-    header_list = get_fasta_headers(targets)
-    return {header: 0 for header in header_list}
-
-
 def get_fasta_headers(fasta: Path) -> list:
     """
     Pulls headers any fasta file (e.g. lines starting with >) and returns them as a single list
@@ -267,9 +262,11 @@ def get_fasta_headers(fasta: Path) -> list:
                 line = line[1:]
                 line = line.strip()
                 header = line.split(" ")[0]
+
+    # TODO: Bug - contigs that have "|" in them will break this fix, whereas targets with "|" need this fix?
                 # This is really sketchy
-                if '|' in header:
-                    header = header.split("|")[1]
+                # if '|' in header:
+                #     header = header.split("|")[1]
                 fasta_headers.append(header)
     return fasta_headers
 
