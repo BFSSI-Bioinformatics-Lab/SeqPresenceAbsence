@@ -452,24 +452,6 @@ def call_makeblastdb(db_file: Path) -> Path:
     return db_name
 
 
-# def call_raxml_ng(fasta: Path):
-#     """
-#     raxml-ng --msa /mnt/QuizBoy/probeDetectionTesting/TreeTest/out/loci/aligned/FcC_supermatrix.fas  --model GTR+G
-#     --threads 2
-#     """
-#     cmd = f"raxml-ng --msa {fasta} --model GTR+G --threads 2"
-
-
-def call_raxml(fasta: Path, n_cpu: int):
-    """
-    raxmlHPC-PTHREADS-SSE3 -s FcC_smatrix.phy.reduced -n VDB_Tree_Galapagos -p 12345 -x 12345 -N 1000 -m GTRGAMMA -T 50
-    -f a
-    """
-    tree_name = fasta.with_suffix(".tree").name
-    cmd = f"raxmlHPC-PTHREADS-SSE3 -s {fasta} -n {tree_name} -p 12345 -N 1000 -m GTRGAMMA -T {n_cpu} -f a"
-    run_subprocess(cmd)
-
-
 def call_muscle(infile: Path, outfile: Path = None):
     if outfile is None:
         outfile = infile.with_suffix(".align.fasta")
