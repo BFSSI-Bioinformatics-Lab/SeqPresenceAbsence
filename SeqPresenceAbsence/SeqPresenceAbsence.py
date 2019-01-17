@@ -8,7 +8,7 @@ from pathlib import Path
 from dataclasses import dataclass
 from subprocess import Popen, PIPE, DEVNULL
 
-__version__ = "0.2.2"
+__version__ = "0.2.3"
 __author__ = "Forest Dussault"
 __email__ = "forest.dussault@canada.ca"
 
@@ -163,7 +163,9 @@ def cli(indir, targets, outdir, perc_identity, verbose):
 
     # Generate a multifasta per locus containing the sequence for each sample
     loci_dir = outdir / "loci"
-    os.makedirs(str(loci_dir), exist_ok=True)
+    if loci_dir.exists():
+        shutil.rmtree(loci_dir)
+    loci_dir.mkdir(exist_ok=False)
 
     # Get master locus list
     master_locus_list = []
@@ -195,7 +197,7 @@ def cli(indir, targets, outdir, perc_identity, verbose):
     # Create aligned versions of each marker multifasta with muscle
     logging.info("Aligning fasta files in loci dir with MUSCLE")
     aligned_dir = Path(loci_dir / 'aligned')
-    aligned_dir.mkdir(exist_ok=True)
+    aligned_dir.mkdir(exist_ok=False)
     for f in tqdm(list(loci_dir.glob("*.fas"))):
         call_muscle(infile=f, outfile=(aligned_dir / f.with_suffix(".align.fas").name))
 
