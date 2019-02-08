@@ -2,7 +2,6 @@
 
 ### Requirements
 - Python >= 3.6
-- Perl 5 (required for FASconCAT-G)
 - [ncbi-blast+](https://blast.ncbi.nlm.nih.gov/Blast.cgi?PAGE_TYPE=BlastDocs&DOC_TYPE=Download) (makeblastdb and blastn must be in your $PATH)
 - [MUSCLE](https://www.drive5.com/muscle/) (muscle must be in your $PATH)
 
@@ -35,10 +34,6 @@ Options:
   --help                     Show this message and exit.
 ```
 
-### Notes
-This package includes a distribution of FASconCAT-G v1.04, developed by Patrick Kück.
-
 ### References
-- Kück P., Meusemann K. (2010): FASconCAT: Convenient handling of data matrices. Mol. Phylogen. Evol. 56:1115-1118
 - Edgar, R.C. (2004) MUSCLE: multiple sequence alignment with high accuracy and high throughput
   Nucleic Acids Res. 32(5):1792-1797
