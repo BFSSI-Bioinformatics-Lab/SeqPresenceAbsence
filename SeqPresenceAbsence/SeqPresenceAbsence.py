@@ -23,8 +23,6 @@ DEPENDENCIES = [
 ]
 
 ROOT_DIR = Path(__file__).parent
-FASCONCAT = ROOT_DIR / 'FASconCAT-G_v1.04.pl'
-os.chmod(str(FASCONCAT), 0o775)
 
 
 def print_version(ctx, param, value):
